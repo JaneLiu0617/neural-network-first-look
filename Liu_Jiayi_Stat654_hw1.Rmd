@@ -1,0 +1,707 @@
+---
+title: "Stat. 654 Homework 1"
+author: "Jiayi Liu"
+date: ' March 18, 2019'
+output:
+  word_document: default
+  pdf_document: default
+  html_notebook: default
+---
+# Homework 1:
+
+(due Monday March 25, 2019)
+Read: Chapter 1 and Chapter 2
+Problems:
+Install R and RStudio, if you do not have them installed. Install the R packages kera and tensorflow for use with a CPU.
+Run the cars Example.
+Run the concrete Example.
+Run the iris Example.
+Run the code in Chapter 2. A first look at a neural network
+
+
+#Run the cars Example.
+## Example: Compare Simple Linear Regresion to a single layer NN.
+
+The **cars** dataset in R contains two variables stopping *speed* of cars in mph and *dist* in feet.  Using speed to predict stopping distance, two models are fit.  See the R code.
+
+a. What function is used to normalize the data?
+b. What percentage of the data is used for *training*?  What percentage of the data is used for *testing*?
+c. What is the fitted linear regression model?
+d. What is the correlation between the linear regression predicted values and the values from the test data?
+e. Sketch the NN model that is used to model stopping distance.
+f. What kind of activation function was used in the ANN?  Sketch a picture of what the activation function looks like.
+g. What is the correlation between the ANN predicted values and the values from the test data?
+h. Examine the scatterplot of speed by distance with the fitted models.  Is the NN fitting a near linear function?
+i. Which model would you use for prediction?  Explain.
+
+**Answer:**
+
+Read in data and examine structure.
+
+```{r}
+suppressMessages(library("tidyverse"))
+```
+
+
+```{r}
+cars <- as.tibble(cars)
+cars
+
+str(cars)
+
+cars %>% ggplot(aes(x=speed, y=dist)) + 
+  geom_point(size = 4) +
+  ggtitle("Cars data") 
+
+```
+
+Apply scaling to entire data frame.
+
+
+```{r}
+cars_norm <- cars %>% mutate(speed = scale(speed), dist=scale(dist))
+cars_norm
+
+str(cars_norm)
+
+cars_norm %>% ggplot(aes(x=speed, y=dist)) + 
+  geom_point(size = 4) + 
+  ggtitle("Scaled cars data") +
+  scale_x_continuous(limits = c(-2.2, 2)) +
+  scale_y_continuous(limits = c(-2, 3))
+
+```
+
+Create training and test data.
+
+**Side note:** This is not done using best practices, the scale() function should only be applied to the training data not the entire dataset.  This is a common practice in many machine learning books.  This should be corrected.
+
+```{r}
+set.seed(12345)
+
+idx <- sample(1:50, 40)
+
+cars_train <- cars_norm[idx, ]
+str(cars_train)
+
+cars_test <- cars_norm[-idx, ]
+str(cars_test)
+
+cars_train <- cars_norm[idx, ]
+str(cars_train)
+
+cars_test <- cars_norm[-idx, ]
+str(cars_test)
+
+cars_train %>% ggplot(aes(x=speed, y=dist)) + 
+  geom_point(size = 4) + 
+  ggtitle("Training Data") +
+  scale_x_continuous(limits = c(-2.2, 2)) +
+  scale_y_continuous(limits = c(-2, 3))
+
+cars_test %>% ggplot(aes(x=speed, y=dist)) + 
+  geom_point(size = 4) + 
+  ggtitle("Test Data") +
+  scale_x_continuous(limits = c(-2.2, 2)) +
+  scale_y_continuous(limits = c(-2, 3))
+```
+
+Fit a simple linear regression.  Train a linear regression model.  Predict the Test Data.  Compare predicted values with the holdout values.
+
+```{r}
+cars_lm <- cars_train %>% lm(dist ~ speed, data = .)
+
+summary(cars_lm)
+
+predicted_lm_dist <- predict(cars_lm, cars_test)
+
+# examine the correlation between predicted and actual values
+cor(predicted_lm_dist, cars_test$dist)  
+```
+
+
+Fit a NN.  Train a neural network model.  Compare the R code.  It is very similar.
+
+```{r}
+library(neuralnet)
+
+set.seed(12345)
+
+cars_model <- cars_train %>% neuralnet(formula = dist ~ speed, 
+        act.fct = "logistic", hidden = 3, linear.output=TRUE)
+
+plot(cars_model)
+```
+
+
+Nice plot with the plotnet() function.
+
+```{r}
+library(NeuralNetTools)
+
+par(mar = numeric(4), family = 'serif')
+plotnet(cars_model, alpha = 0.6)
+```
+
+Predict the Test Data.  Compare predicted values with the holdout values.
+
+```{r}
+model_results <- compute(cars_model, cars_test[1])
+
+predicted_dist <- model_results$net.result
+
+# examine the correlation between predicted and actual values
+cor(predicted_dist, cars_test$dist)  
+```
+
+Plot the fitted models.
+
+```{r}
+ggplot(data=cars_test, aes(x=speed, y=dist)) + 
+  geom_point(size = 4) +
+  geom_smooth(method='lm', formula=y~x, fill=NA) +
+  geom_line(aes(y = predicted_dist)) +
+  ggtitle("Test Data Fitted with a Linear Model (blue) and NN (black)") +
+  scale_x_continuous(limits = c(-2.2, 2)) +
+  scale_y_continuous(limits = c(-2, 3))
+```
+
+## Example: Compare Simple Linear Regression to a Deep Learning, multilayer neural network.  
+
+a. Do you think this model will orverfit?  
+b. What does parsimonious mean?  
+c. Suggest a better measure for goodness-of-fit.
+
+```{r}
+cars_model <- cars_train %>% neuralnet(formula = dist ~ speed, 
+        act.fct = "logistic", hidden = c(10,5), linear.output=TRUE)
+
+plot(cars_model)
+```
+
+Nice plot with the plotnet() function.
+
+```{r}
+par(mar = numeric(4), family = 'serif')
+plotnet(cars_model, alpha = 0.6)
+```
+
+Predict the Test Data.  Compare predicted values with the holdout values.
+
+```{r}
+model_results <- compute(cars_model, cars_test[1])
+
+predicted_dist <- model_results$net.result
+
+# examine the correlation between predicted and actual values
+cor(predicted_dist, cars_test$dist)  
+```
+
+Plot the fitted models.
+
+```{r}
+ggplot(data=cars_test, aes(x=speed, y=dist)) + 
+  geom_point(size = 4) +
+  geom_smooth(method='lm', formula=y~x, fill=NA) +
+  geom_line(aes(y = predicted_dist)) +
+  ggtitle("Test Data Fitted with a Linear Model (blue) and NN (black)") +
+  scale_x_continuous(limits = c(-2.2, 2)) +
+  scale_y_continuous(limits = c(-2, 3))
+```
+
+#Run the concrete Example.
+
+##Step 2: Exploring and preparing the data ----
+
+read in data and examine structure
+
+```{r}
+concrete <- read.csv("http://www.sci.csueastbay.edu/~esuess/stat654/Poster/concrete.csv")
+str(concrete)
+
+```
+
+custom normalization function
+
+```{r}
+normalize <- function(x) { 
+  return((x - min(x)) / (max(x) - min(x)))
+}
+
+```
+
+
+```{r}
+concrete_norm <- as.data.frame(lapply(concrete, normalize))
+summary(concrete_norm$strength)
+
+```
+```{r}
+concrete_train <- concrete_norm[1:773, ]
+concrete_test <- concrete_norm[774:1030, ]
+```
+
+## Step 3: Training a model on the data ----
+```{r}
+library(neuralnet)
+
+# simple ANN with only a single hidden neuron
+set.seed(12345) # to guarantee repeatable results
+concrete_model <- neuralnet(formula = strength ~ cement + slag +
+                            ash + water + superplastic + 
+                            coarseagg + fineagg + age,
+                            data = concrete_train)
+
+# visualize the network topology
+plot(concrete_model)
+```
+
+```{r}
+# alternative plot
+library(NeuralNetTools)
+
+# plotnet
+par(mar = numeric(4), family = 'serif')
+plotnet(concrete_model, alpha = 0.6)
+```
+## Step 4: Evaluating model performance ----
+
+```{r}
+# obtain model results
+model_results <- compute(concrete_model, concrete_test[1:8])
+# obtain predicted strength values
+predicted_strength <- model_results$net.result
+# examine the correlation between predicted and actual values
+cor(predicted_strength, concrete_test$strength)   # higher than stated in book 0.7170368646
+
+# produce actual predictions by 
+
+head(predicted_strength)
+
+concrete_train_original_strength <- concrete[1:773,"strength"]
+
+strength_min <- min(concrete_train_original_strength)
+strength_max <- max(concrete_train_original_strength)
+
+head(concrete_train_original_strength)
+
+# custom normalization function
+unnormalize <- function(x, min, max) { 
+  return( (max - min)*x + min )
+}
+
+strength_pred <- unnormalize(predicted_strength, strength_min, strength_max)
+#strength_pred
+```
+
+## Step 5: Improving model performance ----
+
+```{r}
+# a more complex neural network topology with 5 hidden neurons
+set.seed(12345) # to guarantee repeatable results
+concrete_model2 <- neuralnet(strength ~ cement + slag +
+                             ash + water + superplastic + 
+                             coarseagg + fineagg + age,
+                             data = concrete_train, hidden = 5, act.fct = "logistic")
+
+# plot the network
+plot(concrete_model2)
+
+# plotnet
+par(mar = numeric(4), family = 'serif')
+plotnet(concrete_model2, alpha = 0.6)
+
+# evaluate the results as we did before
+model_results2 <- compute(concrete_model2, concrete_test[1:8])
+predicted_strength2 <- model_results2$net.result
+cor(predicted_strength2, concrete_test$strength)  # higher than stated in book 0.801444583
+
+# try different activation function
+# a more complex neural network topology with 5 hidden neurons
+set.seed(12345) # to guarantee repeatable results
+concrete_model2 <- neuralnet(strength ~ cement + slag +
+                             ash + water + superplastic + 
+                             coarseagg + fineagg + age,
+                             data = concrete_train, hidden = 5, act.fct = "tanh")
+
+# evaluate the results as we did before
+model_results2 <- compute(concrete_model2, concrete_test[1:8])
+predicted_strength2 <- model_results2$net.result
+cor(predicted_strength2, concrete_test$strength)  
+
+```
+## using h2o deeplearning
+
+```{r}
+library(h2o)
+
+h2o.init(nthreads=8, max_mem_size="2G")
+h2o.removeAll() ## clean slate - just in case the cluster was already running
+
+h2o.init()
+
+concrete.hex <- h2o.importFile("http://www.sci.csueastbay.edu/~esuess/stat654/Poster/concrete.csv")
+
+summary(concrete.hex)
+
+splits <- h2o.splitFrame(concrete.hex, 0.75, seed=1234)
+
+dl <- h2o.deeplearning(x=1:8,y="strength",training_frame=splits[[1]],activation = "Tanh", 
+                       hidden = c(200,200), distribution = "gaussian")
+
+dl.predict <- h2o.predict(dl, splits[[2]])
+
+cor(as.vector(dl.predict), as.vector(splits[[2]]$strength))
+
+dl@parameters
+
+h2o.performance(dl)
+
+#h2o.shutdown()
+```
+
+
+#Run the iris Example.
+
+```{r}
+library("keras")
+suppressMessages(library("tidyverse"))
+```
+
+```{r}
+iris %>% as_tibble %>% gather(feature, value, -Species) %>%
+  ggplot(aes(x = feature, y = value, fill = Species)) +
+  geom_violin(alpha = 0.5, scale = "width") +
+  theme_bw()
+```
+
+### Prepare data
+
+We start with slightly wrangling the iris data set by renaming and scaling the features and converting character labels to numeric:
+
+```{r}
+set.seed(265509)
+nn_dat <- iris %>% as_tibble %>%
+  mutate(sepal_length = scale(Sepal.Length),
+         sepal_width  = scale(Sepal.Width),
+         petal_length = scale(Petal.Length),
+         petal_width  = scale(Petal.Width),          
+         class_label  = as.numeric(Species) - 1) %>% 
+    select(sepal_length, sepal_width, petal_length, petal_width, class_label)
+
+nn_dat %>% head(3)
+```
+
+Then, we create indices for splitting the iris data into a training and a test data set. We set aside 20% of the data for testing:
+
+```{r}
+test_fraction   <- 0.20
+n_total_samples <- nrow(nn_dat)
+n_train_samples <- ceiling((1 - test_fraction) * n_total_samples)
+train_indices   <- sample(n_total_samples, n_train_samples)
+n_test_samples  <- n_total_samples - n_train_samples
+test_indices    <- setdiff(seq(1, n_train_samples), train_indices)
+```
+
+Based on the indices, we can now create training and test data
+
+```{r}
+x_train <- nn_dat %>% select(-class_label) %>% as.matrix %>% .[train_indices,]
+y_train <- nn_dat %>% pull(class_label) %>% .[train_indices] %>% to_categorical(3)
+x_test  <- nn_dat %>% select(-class_label) %>% as.matrix %>% .[test_indices,]
+y_test  <- nn_dat %>% pull(class_label) %>% .[test_indices] %>% to_categorical(3)
+```
+
+### Set Architecture
+
+With the data in place, we now set the architecture of our artificical neural network:
+
+```{r}
+model <- keras_model_sequential()
+model %>% 
+  layer_dense(units = 4, activation = 'relu', input_shape = 4) %>% 
+  layer_dense(units = 3, activation = 'softmax')
+model %>% summary
+```
+
+Next, the architecture set in the model needs to be compiled:
+
+```{r}
+model %>% compile(
+  loss      = 'categorical_crossentropy',
+  optimizer = optimizer_rmsprop(),
+  metrics   = c('accuracy')
+)
+```
+
+### Train the Artificial Neural Network
+
+Lastly we fit the model and save the training progres in the `history` object:
+
+```{r}
+history <- model %>% fit(
+  x = x_train, y = y_train,
+  epochs = 200,
+  batch_size = 20,
+  validation_split = 0
+)
+plot(history) +
+  ggtitle("Training a neural network based classifier on the iris data set") +
+  theme_bw()
+```
+
+### Evaluate Network Performance
+
+The final performance can be obtained like so:
+
+```{r}
+perf <- model %>% evaluate(x_test, y_test)
+print(perf)
+```
+
+```{r}
+classes <- iris %>% as_tibble %>% pull(Species) %>% unique
+y_pred  <- model %>% predict_classes(x_test)
+y_true  <- nn_dat %>% pull(class_label) %>% .[test_indices]
+
+tibble(y_true = classes[y_true + 1], y_pred = classes[y_pred + 1],
+       Correct = ifelse(y_true == y_pred, "Yes", "No") %>% factor) %>% 
+  ggplot(aes(x = y_true, y = y_pred, colour = Correct)) +
+  geom_jitter() +
+  theme_bw() +
+  ggtitle(label = "Classification Performance of Artificial Neural Network",
+          subtitle = str_c("Accuracy = ",round(perf$acc,3)*100,"%")) +
+  xlab(label = "True iris class") +
+  ylab(label = "Predicted iris class")
+```
+
+```{r}
+library(gmodels)
+
+CrossTable(y_pred, y_true,
+           prop.chisq = FALSE, prop.t = FALSE, prop.r = FALSE,
+           dnn = c('predicted', 'actual'))
+
+```
+
+#Run the code in Chapter 2. A first look at a neural network
+
+##2.1 load train and test data
+
+```{r}
+library(keras)
+mnist <- dataset_mnist()
+train_images <- mnist$train$x
+train_labels <- mnist$train$y
+test_images <- mnist$test$x
+test_labels <- mnist$test$y
+```
+## data prepare
+
+```{r}
+str(train_images)
+str(train_labels)
+str(test_images)
+str(test_labels)
+```
+```{r}
+train_images <- array_reshape(train_images, c(60000, 28 *28))
+train_images <- train_images/255
+
+test_images <- array_reshape(test_images, c(10000, 28*28))
+test_images <- test_images/255
+```
+
+```{r}
+train_labels <- to_categorical(train_labels)
+test_labels <- to_categorical(test_labels)
+```
+
+
+## model set
+
+```{r}
+network <- keras_model_sequential()%>%
+  layer_dense(units=512, activation = "relu", input_shape = c(28*28)) %>%
+  layer_dense(units = 10, activation = "softmax")
+```
+
+```{r}
+network %>% compile(
+  optimizer= "rmsprop",
+  loss = "categorical_crossentropy",
+  metrics= c("accuracy")
+)
+```
+##fit model
+
+```{r}
+network %>% fit(train_images, train_labels, epochs=5, batch_size=128)
+```
+```{r}
+metrics <- network %>% evaluate(test_images, test_labels)
+metrics
+```
+```{r}
+network %>% predict_classes(test_images[1:10,])
+```
+
+
+## 2.2 data preparation
+
+```{r}
+x <- matrix(rep(0,3*5), nrow = 3, ncol = 5)
+x
+```
+
+```{r}
+x<- array(rep(0,2*3*2), dim = c(2,3,2))
+str(x)
+dim(x)
+```
+
+
+```{r}
+length(dim(train_images))
+dim(train_images)
+typeof(train_images)
+```
+```{r}
+#digit <- train_images[5,,]
+#plot(as.raster(digit, max = 255))
+#my_slice <- train_images[10:99,,]
+#dim(my_slice)
+#my_slice <- train_images[10:99,1:28,1:28]
+#dim(my_slice)
+#my_slice <- train_images[,15:28,15:28]
+```
+
+
+```{r}
+#batch <- train_images[1:128,,]
+#batch <- train_images[129:256,,]
+```
+##2.3 gears of neural networks
+
+```{r}
+layer_dense(units=512, activation = "relu")
+```
+
+```{r}
+#output= relu(dot(w, input)+ b)
+```
+
+```{r}
+naive_relu <- function(x){
+  for (i in nrow(x)) 
+    for (j in ncol(x)) 
+      x[i,j] <- max(x[i,j],0)
+    x
+   
+}
+```
+
+```{r}
+naive_relu <- function(x){
+  for (i in nrow(x)) 
+    for (j in ncol(x)) 
+      x[i,j] = x[i,j]+y[i,j]
+    x
+   
+}
+```
+
+```{r}
+x <-array(round(runif(1000,0,9)), dim = c(64,3,32,10))
+y <- array(5, dim = c(32,10))
+z <- sweep(x, c(3,4), y, pmax)
+
+```
+
+
+```{r}
+#z <- x+y
+#z <- pmax(z,0)
+```
+```{r}
+#sweep(x, 2, y, '+')
+```
+
+```{r}
+naive_vector_dot <- function(x,y){
+  z<- 0
+  for (i in 1:length(x))
+    z <- z+x[[i]]*y[[i]]
+  z
+}
+```
+
+```{r}
+naive_matrix_vector_dot <- function(x,y){
+  z<- rep(0, nrow(x))
+  for (i in 1:nrow(x))
+    for (j in 1:ncol(x))
+    z <- z[[i]]+x[[i,j]]*y[[j]]
+  z
+}
+```
+
+```{r}
+naive_matrix_vector_dot <- function(x, y) {  
+  z <- rep(0, nrow(x))  
+  for (i in 1:nrow(x))    
+    z[[i]] <- naive_vector_dot(x[i,], y)  
+  z
+}
+```
+
+```{r}
+naive_matrix_dot <- function(x, y) {  
+  z <- matrix(0, nrow = nrow(x), ncol = ncol(y))  
+  for (i in 1:nrow(x))    
+    for (j in 1:ncol(y)) {      
+      row_x <- x[i,]      
+      column_y <- y[,j]     
+      z[i, j] <- naive_vector_dot(row_x, column_y)   
+    } 
+  z
+  }
+```
+
+```{r}
+train_images <- array_reshape(train_images, c(60000, 28 * 28))
+
+```
+
+```{r}
+x <- matrix(c(0, 1,               
+              2, 3,               
+              4, 5),              
+            nrow = 3, ncol = 2, byrow = TRUE)
+x <- array_reshape(x, dim = c(6, 1))
+x <- array_reshape(x, dim = c(2, 3))
+x <- matrix(0, nrow = 300, ncol = 20)
+dim(x)
+x <- t(x)
+```
+##2.5 Looking back at our first example
+
+```{r}
+network %>% compile(  
+  optimizer = "rmsprop",  
+  loss = "categorical_crossentropy",  
+  metrics = c("accuracy"))
+```
+
+```{r}
+compile(  
+  network,  
+  optimizer = "rmsprop",  
+  loss = "categorical_crossentropy",  
+  metrics = c("accuracy"))
+```
+
+```{r}
+network %>% fit(train_images, train_labels, epochs = 5, batch_size = 128)
+```
+
